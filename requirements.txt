@@ -1,0 +1,14 @@
+numpy==1.22.0
+matplotlib==3.3.0
+pandas==1.5.1
+scipy==1.9.3
+sklearn==0.0
+seaborn==0.12
+folium==0.12.1
+pandas-profiling==3.4.0
+pysqlite3==0.4.7
+sweetviz==2.1.4
+pydqc==0.1.0
+python-math==0.0.1
+ipynb==0.5.1
+mlxtend==0.21.0
