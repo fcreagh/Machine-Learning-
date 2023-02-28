@@ -1,149 +1,206 @@
-import matplotlib.pyplot as plt
+# Functions for KMeans project
+
+from matplotlib import pyplot as plt
+import seaborn as sns
 import numpy as np
-from sklearn.linear_model import LinearRegression
-import os
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics.cluster import adjusted_rand_score
+from sklearn import tree
 
-#############################################################################
-# 1) Sum up the total animal and plant product production for given year
-def animal_or_plant(dat, year = 'Y2013', plot_color = 'g'):
-    tot_prod = dat.groupby(by='Animal_or_plant_name')[year].sum().reset_index()
 
-    plt.style.use("seaborn-white")
-    plt.bar(tot_prod['Animal_or_plant_name'], tot_prod[year], color = plot_color)
-    plt.title(f'Total global animal vs plant production in {year[1:]}')
-    plt.ylabel('Total annual production (1000 tonnes)')
-    plt.xlabel('Category')
-    plt.xticks(rotation = 60)
+############################################################################
+## 1) Function to run kmeans and get score on different datasets and/or features
+# also runs PCA and creates confusion matrix
+# make sure data points aren't listed in any particular order
+
+""" 
+Runs KMeans modelling and checking for given dataset
+
+feature_df: feature dataset - includes columns of chosen features
+y_data: target variable (string)
+kmeans_clusters: number of clusters to use for KMeans model
+target_df: stroke target (y) dataframe including id column
+
+"""
+
+def run_kmeans(X_train, y_train, kmeans_clusters = 2):
+
+   
+    # Put the features on the same scale
+
+    scaler = StandardScaler()
+
+    X_train_ss = scaler.fit_transform(X_train)
+
+    # run KMeans model
+
+    model = KMeans(n_clusters = kmeans_clusters, random_state = 0)
+    kmeans = model.fit(X_train_ss)
+
+    # get the labels for the model
+    predicted_labels_k = kmeans.labels_
+    print(f'labels: \n\n {predicted_labels_k} \n\n')
+
+        # print score
+    print(f"Inertia score for k_means model: \n\n {kmeans.inertia_} \n\n")
+
+    #ref 15
+
+    # print accuracy score
+    print(f"Accuracy score for k_means model: \n\n {accuracy_score(y_train, predicted_labels_k)} \n\n")
+
+    # What are the centroids?
+    centroids = kmeans.cluster_centers_
+
+    print(f'Centroids \n\n {centroids} \n\n')
+
+# Plot confusion matrix
+
+    conf_matrix=confusion_matrix(y_train, predicted_labels_k) 
+
+    fig, ax = plt.subplots(figsize=(7.5, 7.5))
+    ax.matshow(conf_matrix, cmap=plt.cm.Blues, alpha=0.3)
+    for i in range(conf_matrix.shape[0]):
+        for j in range(conf_matrix.shape[1]):
+            ax.text(x=j, y=i,s=conf_matrix[i, j], va='center', 
+                ha='center', size='xx-large')
+ 
+    plt.xlabel('Predictions', fontsize=18)
+    plt.ylabel('Actuals', fontsize=18)
+    plt.title('Confusion Matrix for K-means model', fontsize=18)
+    plt.show()
+
+    stroke_labels = X_train.join(y_train)
+    stroke_labels['labels'] = predicted_labels_k
+
+    sns.lmplot(x='avg_glucose_level', y='bmi', data=stroke_labels, hue='stroke', 
+        fit_reg=False)
+    plt.title('Actual Classification')
+
+    sns.lmplot(x='avg_glucose_level', y='bmi', data=stroke_labels, hue='labels', fit_reg=False)
+    plt.title('Predicted Cluster')
+    plt.show();
+
+    # dataset with both original stoke column and labels (stoke estimate) column
+    stroke_labels.head()
+
+    # part 3 - compare true labels with predicted labels
+    print(f"TASK 3: \n Adjusted rand score for k_means: \n\n \
+          {adjusted_rand_score(stroke_labels['stroke'], stroke_labels['labels'])} \n\n")
+
+    # run a decision tree classifier
+
+    clf = tree.DecisionTreeClassifier(max_depth = 3, random_state = 0)
+    clf = clf.fit(X_train, y_train)
+
+    dec_tree_labels = clf.predict(X_train)
+
+    print(f"Decision tree labels: \n\n {dec_tree_labels} \n\n")
+
+    # Calculate adjusted rand score to compare labels from decision tree with true labels
+
+    print(f"adjusted rand score for decision tree: \n\n {adjusted_rand_score(stroke_labels['stroke'], dec_tree_labels)} \n\n")
+
+# ref 10
+
+    print(f"predict proba: \n\n {clf.predict_proba(X_train)} \n\n")
+
+
+    # plot decision tree
+    plt.figure(figsize=(12,12))
+    tree.plot_tree(clf, fontsize = 8)
+    plt.show()
+
+    # ref 11
+
+    # print decision tree accuracy score
+    print(f"Accuracy score for decision tree model: \n\n {accuracy_score(y_train, dec_tree_labels)} \n\n")
+
+    # Plot confusion matrix
+
+    conf_matrix=confusion_matrix(y_train, dec_tree_labels) 
+
+    fig, ax = plt.subplots(figsize=(7.5, 7.5))
+    ax.matshow(conf_matrix, cmap=plt.cm.Blues, alpha=0.3)
+    for i in range(conf_matrix.shape[0]):
+        for j in range(conf_matrix.shape[1]):
+            ax.text(x=j, y=i,s=conf_matrix[i, j], va='center', 
+                ha='center', size='xx-large')
+ 
+    plt.xlabel('Predictions', fontsize=18)
+    plt.ylabel('Actuals', fontsize=18)
+    plt.title('Confusion Matrix for decision tree model', fontsize=18)
+    plt.show()
+
+    
+
+##################################################################
+# 2) Create an instance of PCA, function
+
+""" 
+Runs principal component analysis
+
+X_train: feature dataset
+y_data: target variable (string)
+pca_components: number of principal components to use when applying dimensionality reduction
+
+"""
+
+    # Fit Xs
+def run_pca(feature_df, y_data, pca_components = 2):
+
+    pca = PCA()
+
+    pca.fit(feature_df)
+
+    # Plot explained_variance_
+    # Most of the variance is explained by the first component
+
+    print(f'Explained variance ratios: \n\n {pca.explained_variance_ratio_} \n\n')
+
+    plt.plot(range(0,len(pca.explained_variance_ratio_)), pca.explained_variance_ratio_)
+    plt.ylabel('Explained Variance')
+    plt.xlabel('Principal Components')
+    plt.title('Explained Variance Ratio')
+    plt.show()
+    
+    # Apply dimensionality reduction to Xs using transform
+
+    pca = PCA(n_components = pca_components)
+
+    pca.fit(feature_df)
+
+    print(f'Explained variance ratio: \n\n {pca.explained_variance_ratio_} \n\n')
+
+    variance = (pca.explained_variance_ratio_[0] + pca.explained_variance_ratio_[1])*100
+
+    print(f'Variance explained by the first 2 components: \n\n \
+    {"%.4f" % variance}% \n\n')
+
+    # Add the ys back into df and project the data into this 2D space and convert it back to a tidy dataframe
+    X_train_y_orig = pd.merge(feature_df, y_data, on = "id", how = 'left')
+    nmes = list(feature_df.columns)
+    df_2D = pd.DataFrame(pca.transform(feature_df[nmes]),
+                     columns=['PCA1', 'PCA2'])
+    df_2D['stroke'] = X_train_y_orig['stroke']
+    print(df_2D.head())
+
+    # Create PairPlot of PCA
+
+    for key, group in df_2D.groupby(['stroke']):
+        plt.plot(group.PCA1, group.PCA2, 'o', alpha=0.7, label=key)
+
+    # Tidy up plot
+    plt.legend(loc=0, fontsize=15)
+    plt.margins(0.05)
+    plt.xlabel('PCA 1')
+    plt.ylabel('PCA 2')
+    plt.title('2D plot of the first and second principal components')
     plt.show()
 
 
-##############################################################################
-# 2) Check distribution of the features
-
-def feature_distribution(dat, transformation = np.sqrt, tr = 'sqrt', colr = 'g', trans_dat = 'yes', folder = 'graphs',\
- features = ['Y2012', 'Y2011', 'Y2006', 'Y2010', 'Y2000', 'Y2008', 'Y1997', 'Y2009', 'Y1995', 'Y2005', 
-'Y2002', 'Y2003', 'Y1993', 'Y1992', 'Y2001', 'Y1999', 'Item Code', 'Animal_or_plant_code', 'Y1994']):
-    # create graphs folder in working directory
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-
-    for x in features:
-        if trans_dat == 'yes':
-            
-            #log transformation
-            if tr == 'log':
-                dat2 = transformation(dat[x])
-                plt.style.use("seaborn-white")
-                plt.hist(dat2[np.isfinite(dat2)].values, color = colr)
-                plt.title(f'Distribution of data for column: {x}')
-                plt.ylabel('Count')
-                plt.xlabel('Log of production total')
-                plt.savefig(f'{folder}/Feature_distribution_{tr}_{x}.png')
-                plt.close()
-            else:
-                dat1 = dat
-            # transform data
-                dat2 = transformation(dat[x])
-                plt.style.use("seaborn-white")
-                plt.hist(dat2, color = colr)
-                plt.title(f'Distribution of data for column: {x}')
-                plt.ylabel('Count')
-                plt.xlabel(f'{tr} of production total')
-                plt.savefig(f'{folder}/Feature_distribution_{tr}_{x}.png')
-                plt.close()
-            
-            #plot untransformed data
-        elif trans_dat == 'no':
-            plt.style.use("seaborn-white")
-            dat[x].plot(kind='hist', edgecolor='black', color = colr)  
-            plt.title(f'Distribution of data for column: {x}')
-            plt.ylabel('Count')
-            plt.xlabel('Production total (1000 tonnes)')                  
-            plt.savefig(f'{folder}/Feature_distribution_original_{x}.png')
-            plt.close()
-            # if missing required input
-        else:
-            print(f'Please provide a value for trans_dat = yes or no. (Yes to apply a transformation to the data.)')
-
-
-# ref 6
-
-#############################################################################
-# 3) Forward feature selection
-# (from lab 4s)
-
-def feature_selection_func(features, X_train, y_train, model_type = LinearRegression(), show_step = True):
-
-    show_steps = show_step
-    included = []
-
-    # keep track of model and parameters
-    best = {'feature': '', 'r2': 0, 'a_r2': 0}
-
-    # create a model object to hold the modelling parameters
-    model = model_type # create a model for Linear Regression
-    # get the number of cases in the training data
-
-    n = X_train.shape[0]
-
-    while True:
-        changed = False
-        if show_steps:
-            print('')
-
-
-    # list the features to be evaluated
-        excluded = list(set(features.columns) - set(included))
-
-        if show_steps:
-            print('(Step) Excluded = %s' % ', '.join(excluded))
-
-        # for each remaining feature to be evaluated
-        for new_column in excluded:
-
-            if show_steps:
-                print('(Step) Trying %s...' % new_column)
-                print('(Step) - Features = %s' % ', '.join(included + [new_column]))
-
-            # fit the model with the Training data
-            fit = model.fit(X_train[included + [new_column]], y_train) # fit a model; consider which predictors should be included
-
-            # calculate the score (R^2 for Regression)
-            r2 = fit.score(X_train[included + [new_column]], y_train) # calculate the score
-            # number of predictors in this model
-            k = len(included + [new_column])
-            # calculate the adjusted R^2
-            adjusted_r2 = 1 -(((1-r2)*(n-1))/(n-k-1)) # calculate the Adjusted R^2
-
-            if show_steps:
-                print('(Step) - Adjusted R^2: This = %.3f; Best = %.3f' %
-                    (adjusted_r2, best['a_r2']))
-
-            # if model improves
-            if adjusted_r2 > best['a_r2']:
-                # record new parameters
-                best = {'feature': new_column, 'r2': r2, 'a_r2': adjusted_r2}
-                # flag that found a better model
-                changed = True
-                if show_steps:
-                    print('(Step) - New Best!   : Feature = %s; R^2 = %.3f; Adjusted R^2 = %.3f' %
-                        (best['feature'], best['r2'], best['a_r2']))
-
-        # END for
-
-        # if found a better model after testing all remaining features
-        if changed:
-            # update control details
-            included.append(best['feature'])
-            excluded = list(set(excluded) - set(best['feature']))
-            print('Added feature %-4s with R^2 = %.3f and adjusted R^2 = %.3f' %
-                (best['feature'], best['r2'], best['a_r2']))
-        else:
-            # terminate if no better model
-            break
-
-        print('')
-        print('Resulting features:')
-        print(', '.join(included))
-
-# ref 9
+    
